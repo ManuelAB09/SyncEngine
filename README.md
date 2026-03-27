@@ -67,7 +67,7 @@ util/            → Utilidades (fechas, etc.)
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/<tu-usuario>/SyncEngine.git
+git clone https://github.com/ManuelAB09/SyncEngine.git
 cd SyncEngine
 ```
 
