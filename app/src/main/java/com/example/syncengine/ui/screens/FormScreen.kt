@@ -1,0 +1,332 @@
+package com.example.syncengine.ui.screens
+
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.syncengine.ui.viewmodel.IncidenciaViewModel
+import java.io.File
+
+/**
+ * Pantalla de formulario para crear o editar una incidencia.
+ * Si hay una incidencia seleccionada en el ViewModel → modo edición.
+ * Si no → modo creación.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FormScreen(
+    viewModel: IncidenciaViewModel,
+    onNavigateBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val selectedIncidencia by viewModel.selectedIncidencia.collectAsState()
+    val isEditing = selectedIncidencia != null
+
+    var titulo by remember(selectedIncidencia) {
+        mutableStateOf(selectedIncidencia?.titulo ?: "")
+    }
+    var descripcion by remember(selectedIncidencia) {
+        mutableStateOf(selectedIncidencia?.descripcion ?: "")
+    }
+    var estado by remember(selectedIncidencia) {
+        mutableStateOf(selectedIncidencia?.estado ?: "pendiente")
+    }
+    var latitudText by remember(selectedIncidencia) {
+        mutableStateOf(selectedIncidencia?.latitud?.toString() ?: "")
+    }
+    var longitudText by remember(selectedIncidencia) {
+        mutableStateOf(selectedIncidencia?.longitud?.toString() ?: "")
+    }
+
+    // ── Estado de la foto ──
+    // Prioridad: foto local nueva > foto local existente > foto_url remota
+    var localPhotoPath by remember(selectedIncidencia) {
+        mutableStateOf(selectedIncidencia?.foto_path)
+    }
+    val existingPhotoUrl = selectedIncidencia?.foto_url
+
+    // Lo que se muestra como preview: uri local o url remota
+    val photoPreview: Any? = when {
+        localPhotoPath != null -> File(localPhotoPath!!)
+        existingPhotoUrl != null -> existingPhotoUrl
+        else -> null
+    }
+
+    // ── Launcher para elegir foto de la galería ──
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            // Copiar la imagen al almacenamiento interno de la app
+            val destFile = File(context.filesDir, "foto_${System.currentTimeMillis()}.jpg")
+            context.contentResolver.openInputStream(it)?.use { input ->
+                destFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            localPhotoPath = destFile.absolutePath
+        }
+    }
+
+    val estados = listOf("pendiente", "en_progreso", "resuelta")
+    var estadoExpanded by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(if (isEditing) "Editar Incidencia" else "Nueva Incidencia") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                navigationIcon = {
+                    IconButton(onClick = {
+                        viewModel.clearSelection()
+                        onNavigateBack()
+                    }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver"
+                        )
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Título
+            OutlinedTextField(
+                value = titulo,
+                onValueChange = { titulo = it },
+                label = { Text("Título *") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            // Descripción (obligatoria)
+            OutlinedTextField(
+                value = descripcion,
+                onValueChange = { descripcion = it },
+                label = { Text("Descripción *") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                maxLines = 5,
+                isError = descripcion.isBlank() && titulo.isNotBlank(),
+                supportingText = {
+                    if (descripcion.isBlank() && titulo.isNotBlank()) {
+                        Text("La descripción es obligatoria")
+                    }
+                }
+            )
+
+            // ── Foto ──
+            Text(
+                "Foto (opcional)",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (photoPreview != null) {
+                // Preview de la foto seleccionada
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(photoPreview)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Foto de la incidencia",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    // Botón para quitar la foto
+                    IconButton(
+                        onClick = { localPhotoPath = null },
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Quitar foto",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            } else {
+                // Placeholder para seleccionar foto
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(
+                            2.dp,
+                            MaterialTheme.colorScheme.outlineVariant,
+                            RoundedCornerShape(12.dp)
+                        )
+                        .clickable { galleryLauncher.launch("image/*") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📷", style = MaterialTheme.typography.headlineMedium)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Toca para seleccionar una foto",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
+            // Botón para cambiar foto si ya hay una
+            if (photoPreview != null) {
+                OutlinedButton(
+                    onClick = { galleryLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cambiar foto")
+                }
+            }
+
+            // Estado (solo en modo edición)
+            if (isEditing) {
+                ExposedDropdownMenuBox(
+                    expanded = estadoExpanded,
+                    onExpandedChange = { estadoExpanded = !estadoExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = estado.replaceFirstChar { it.uppercase() },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Estado") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = estadoExpanded)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = estadoExpanded,
+                        onDismissRequest = { estadoExpanded = false }
+                    ) {
+                        estados.forEach { opcion ->
+                            DropdownMenuItem(
+                                text = { Text(opcion.replaceFirstChar { it.uppercase() }) },
+                                onClick = {
+                                    estado = opcion
+                                    estadoExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Coordenadas (opcionales)
+            Text(
+                "Ubicación (opcional)",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = latitudText,
+                    onValueChange = { latitudText = it },
+                    label = { Text("Latitud") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = longitudText,
+                    onValueChange = { longitudText = it },
+                    label = { Text("Longitud") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Botón guardar
+            Button(
+                onClick = {
+                    val lat = latitudText.toDoubleOrNull()
+                    val lng = longitudText.toDoubleOrNull()
+
+                    if (isEditing) {
+                        viewModel.updateIncidencia(titulo, descripcion, estado, localPhotoPath)
+                    } else {
+                        viewModel.createIncidencia(titulo, descripcion, lat, lng, localPhotoPath)
+                    }
+                    onNavigateBack()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = titulo.isNotBlank() && descripcion.isNotBlank()
+            ) {
+                Text(if (isEditing) "Guardar Cambios" else "Crear Incidencia")
+            }
+        }
+    }
+}
