@@ -114,7 +114,7 @@ fun FormScreen(
         }
     }
 
-    val estados = listOf("pendiente", "en_progreso", "resuelta")
+    val estados = listOf("pendiente", "En progreso", "resuelta")
     var estadoExpanded by remember { mutableStateOf(false) }
 
     Scaffold(

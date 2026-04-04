@@ -16,10 +16,14 @@ import com.example.syncengine.data.repository.IncidenciaRepository
 import com.example.syncengine.sync.SyncEngine
 import com.example.syncengine.sync.SyncResult
 import io.github.jan.supabase.gotrue.auth
+import com.example.syncengine.util.ConnectivityHelper
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -32,6 +36,7 @@ class IncidenciaViewModel(application: Application) : AndroidViewModel(applicati
     private val db = (application as SyncEngineApp).database
     private val repository = IncidenciaRepository(db.incidenciaDao(), db.conflictDao())
     private val syncEngine = SyncEngine(db.incidenciaDao(), db.conflictDao(), application)
+    private var periodicSyncJob: Job? = null
 
     // ─── Estado de la UI ────────────────────────────────────────
 
@@ -41,6 +46,7 @@ class IncidenciaViewModel(application: Application) : AndroidViewModel(applicati
 
     /** Lista de incidencias activas (Flow → StateFlow para Compose) */
     val incidencias: StateFlow<List<IncidenciaEntity>> = repository.getAllIncidencias()
+        .map { allIncidencias -> allIncidencias.filter { it.usuario_id == currentUserId } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** Incidencias en conflicto */
@@ -71,12 +77,21 @@ class IncidenciaViewModel(application: Application) : AndroidViewModel(applicati
     private val _lastSyncTimestamp = MutableStateFlow(syncEngine.getLastSyncTimestamp())
     val lastSyncTimestamp: StateFlow<Long> = _lastSyncTimestamp.asStateFlow()
 
+    /** Indica si la sincronización periódica está activa */
+    private val _isPeriodicSyncActive = MutableStateFlow(false)
+    val isPeriodicSyncActive: StateFlow<Boolean> = _isPeriodicSyncActive.asStateFlow()
+
     // ─── Acciones ───────────────────────────────────────────────
 
     fun createIncidencia(titulo: String, descripcion: String, latitud: Double?, longitud: Double?, fotoPath: String? = null) {
         viewModelScope.launch {
             val userId = SupabaseNetwork.client.auth.currentUserOrNull()?.id ?: return@launch
             repository.createIncidencia(titulo, descripcion, latitud, longitud, userId, fotoPath)
+            
+            // Intenta sincronizar inmediatamente si hay internet
+            if (ConnectivityHelper.isInternetAvailable(getApplication())) {
+                syncNow()
+            }
         }
     }
 
@@ -120,6 +135,42 @@ class IncidenciaViewModel(application: Application) : AndroidViewModel(applicati
 
     fun clearSyncState() {
         _syncState.value = SyncUiState.Idle
+    }
+
+    /**
+     * Inicia la sincronización periódica cada 30 segundos si hay internet.
+     * Se llama cuando el usuario abre la pantalla de incidencias.
+     */
+    fun startPeriodicSync() {
+        // Si ya está activo, no hacer nada
+        if (_isPeriodicSyncActive.value) return
+
+        _isPeriodicSyncActive.value = true
+        periodicSyncJob = viewModelScope.launch {
+            while (_isPeriodicSyncActive.value) {
+                try {
+                    delay(30000) // Esperar 30 segundos
+                    
+                    // Solo sincronizar si hay internet y no hay sincronización en curso
+                    if (ConnectivityHelper.isInternetAvailable(getApplication()) && 
+                        _syncState.value == SyncUiState.Idle) {
+                        syncNow()
+                    }
+                } catch (e: Exception) {
+                    // Ignorar excepciones para continuar el loop
+                }
+            }
+        }
+    }
+
+    /**
+     * Detiene la sincronización periódica.
+     * Se llama cuando el usuario sale de la pantalla de incidencias.
+     */
+    fun stopPeriodicSync() {
+        _isPeriodicSyncActive.value = false
+        periodicSyncJob?.cancel()
+        periodicSyncJob = null
     }
 
     // ─── Resolución de conflictos ───────────────────────────────
