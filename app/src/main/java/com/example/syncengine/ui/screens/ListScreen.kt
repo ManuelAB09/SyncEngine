@@ -94,6 +94,7 @@ fun ListScreen(
 
     // Mostrar resultado de sync en snackbar
     LaunchedEffect(syncState) {
+        viewModel.startPeriodicSync()
         when (val state = syncState) {
             is SyncUiState.Done -> {
                 val r = state.result

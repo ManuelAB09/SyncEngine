@@ -6,6 +6,7 @@
 package com.example.syncengine.ui.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.syncengine.SyncEngineApp
@@ -126,7 +127,13 @@ class IncidenciaViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 val result = syncEngine.sync()
                 _lastSyncTimestamp.value = syncEngine.getLastSyncTimestamp()
-                _syncState.value = SyncUiState.Done(result)
+                
+                // Solo mostrar el mensaje si hay cambios (pushed > 0 o pulled > 0)
+                if (result.pushed > 0 || result.pulled > 0) {
+                    _syncState.value = SyncUiState.Done(result)
+                } else {
+                    _syncState.value = SyncUiState.Idle
+                }
             } catch (e: Exception) {
                 _syncState.value = SyncUiState.Error(e.message ?: "Error desconocido")
             }
@@ -143,13 +150,15 @@ class IncidenciaViewModel(application: Application) : AndroidViewModel(applicati
      */
     fun startPeriodicSync() {
         // Si ya está activo, no hacer nada
+        Log.d("MiApp", "me ejecuto")
         if (_isPeriodicSyncActive.value) return
 
         _isPeriodicSyncActive.value = true
         periodicSyncJob = viewModelScope.launch {
             while (_isPeriodicSyncActive.value) {
                 try {
-                    delay(30000) // Esperar 30 segundos
+                    delay(15000) // Esperar 15 segundos
+                    Log.d("MiApp", "ciclo de 15 segundos")
                     
                     // Solo sincronizar si hay internet y no hay sincronización en curso
                     if (ConnectivityHelper.isInternetAvailable(getApplication()) && 
