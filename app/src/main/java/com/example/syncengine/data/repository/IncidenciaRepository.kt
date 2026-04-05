@@ -75,7 +75,8 @@ class IncidenciaRepository(
         latitud: Double?,
         longitud: Double?,
         usuarioId: String,
-        fotoPath: String? = null
+        fotoPath: String? = null,
+        googleMapsUrl: String? = null
     ) {
         val now = System.currentTimeMillis()
         val entity = IncidenciaEntity(
@@ -88,6 +89,7 @@ class IncidenciaRepository(
             longitud = longitud,
             foto_path = fotoPath,
             foto_url = null,
+            google_maps_url = googleMapsUrl,
             version = 1,
             creado_en = now,
             actualizado_en = now,
@@ -106,13 +108,15 @@ class IncidenciaRepository(
         titulo: String,
         descripcion: String,
         estado: String,
-        fotoPath: String? = null
+        fotoPath: String? = null,
+        googleMapsUrl: String? = null
     ) {
         val updated = existing.copy(
             titulo = titulo,
             descripcion = descripcion,
             estado = estado,
             foto_path = fotoPath ?: existing.foto_path,
+            google_maps_url = googleMapsUrl ?: existing.google_maps_url,
             actualizado_en = System.currentTimeMillis(),
             // NO incrementar version localmente: se mantiene la versión del servidor
             // para poder detectar conflictos comparando con la versión remota.
@@ -162,6 +166,7 @@ class IncidenciaRepository(
                 latitud = remote.remote_latitud,
                 longitud = remote.remote_longitud,
                 foto_url = remote.remote_foto_url,
+                google_maps_url = remote.remote_google_maps_url,
                 version = remote.remote_version
             )
             val resolved = local.copy(
@@ -192,6 +197,7 @@ class IncidenciaRepository(
             latitud = remote.remote_latitud,
             longitud = remote.remote_longitud,
             foto_url = remote.remote_foto_url,
+            google_maps_url = remote.remote_google_maps_url,
             version = remote.remote_version
         )
 
@@ -202,6 +208,7 @@ class IncidenciaRepository(
             latitud = remote.remote_latitud,
             longitud = remote.remote_longitud,
             foto_url = remote.remote_foto_url,
+            google_maps_url = remote.remote_google_maps_url,
             version = remote.remote_version,
             creado_en = remote.remote_creado_en,
             actualizado_en = remote.remote_actualizado_en,

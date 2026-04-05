@@ -84,10 +84,10 @@ class IncidenciaViewModel(application: Application) : AndroidViewModel(applicati
 
     // ─── Acciones ───────────────────────────────────────────────
 
-    fun createIncidencia(titulo: String, descripcion: String, latitud: Double?, longitud: Double?, fotoPath: String? = null) {
+    fun createIncidencia(titulo: String, descripcion: String, latitud: Double?, longitud: Double?, fotoPath: String? = null, googleMapsUrl: String? = null) {
         viewModelScope.launch {
             val userId = SupabaseNetwork.client.auth.currentUserOrNull()?.id ?: return@launch
-            repository.createIncidencia(titulo, descripcion, latitud, longitud, userId, fotoPath)
+            repository.createIncidencia(titulo, descripcion, latitud, longitud, userId, fotoPath, googleMapsUrl)
             
             // Intenta sincronizar inmediatamente si hay internet
             if (ConnectivityHelper.isInternetAvailable(getApplication())) {
@@ -96,10 +96,10 @@ class IncidenciaViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun updateIncidencia(titulo: String, descripcion: String, estado: String, fotoPath: String? = null) {
+    fun updateIncidencia(titulo: String, descripcion: String, estado: String, fotoPath: String? = null, googleMapsUrl: String? = null) {
         viewModelScope.launch {
             val existing = _selectedIncidencia.value ?: return@launch
-            repository.updateIncidencia(existing, titulo, descripcion, estado, fotoPath)
+            repository.updateIncidencia(existing, titulo, descripcion, estado, fotoPath, googleMapsUrl)
             _selectedIncidencia.value = null
         }
     }

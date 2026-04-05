@@ -20,6 +20,7 @@ data class IncidenciaEntity(
     val longitud: Double?,
     val foto_path: String?,       // Ruta local del fichero de imagen
     val foto_url: String?,        // URL pública en Supabase Storage
+    val google_maps_url: String?, // Enlace a Google Maps
     val version: Int,
     val creado_en: Long,
     val actualizado_en: Long,
@@ -45,9 +46,10 @@ data class IncidenciaEntity(
             latitud: Double?,
             longitud: Double?,
             foto_url: String?,
+            google_maps_url: String?,
             version: Int
         ): String {
-            val raw = "$titulo|${descripcion.orEmpty()}|$estado|$latitud|$longitud|$foto_url|$version"
+            val raw = "$titulo|${descripcion.orEmpty()}|$estado|$latitud|$longitud|$foto_url|$google_maps_url|$version"
             val md5 = MessageDigest.getInstance("MD5")
             return md5.digest(raw.toByteArray()).joinToString("") { "%02x".format(it) }
         }

@@ -21,6 +21,7 @@ data class IncidenciaDto(
     val latitud: Double? = null,
     val longitud: Double? = null,
     val foto_url: String? = null,          // URL pública en Supabase Storage
+    val google_maps_url: String? = null,   // Enlace a Google Maps
     val version: Int = 1,
     val creado_en: String? = null,
     val actualizado_en: String? = null,
@@ -43,6 +44,7 @@ fun IncidenciaDto.toEntity(syncStatus: SyncStatus = SyncStatus.SYNCED): Incidenc
         longitud = longitud,
         foto_path = null,           // Se descargará aparte si hace falta
         foto_url = foto_url,
+        google_maps_url = google_maps_url,
         version = version,
         creado_en = creado_en?.let { DateUtils.parseIsoToEpochMillis(it) } ?: System.currentTimeMillis(),
         actualizado_en = actualizado_en?.let { DateUtils.parseIsoToEpochMillis(it) } ?: System.currentTimeMillis(),
@@ -64,6 +66,7 @@ fun IncidenciaEntity.toDto(): IncidenciaDto {
         latitud = latitud,
         longitud = longitud,
         foto_url = foto_url,       // Se rellena tras subir la foto a Storage
+        google_maps_url = google_maps_url,
         version = version,
         creado_en = DateUtils.epochMillisToIso(creado_en),
         actualizado_en = DateUtils.epochMillisToIso(actualizado_en),

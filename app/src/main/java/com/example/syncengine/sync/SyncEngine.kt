@@ -1,6 +1,6 @@
 @file:OptIn(
-    kotlinx.serialization.InternalSerializationApi::class,
-    kotlinx.serialization.ExperimentalSerializationApi::class
+    InternalSerializationApi::class,
+    ExperimentalSerializationApi::class
 )
 
 package com.example.syncengine.sync
@@ -19,6 +19,8 @@ import com.example.syncengine.data.remote.toEntity
 import com.example.syncengine.util.DateUtils
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import java.io.File
 import java.net.ConnectException
@@ -223,7 +225,8 @@ class SyncEngine(
             latitud = dto.latitud,
             longitud = dto.longitud,
             foto_url = dto.foto_url,
-            version = dto.version
+            version = dto.version,
+            google_maps_url = dto.google_maps_url
         )
     }
 
@@ -290,6 +293,7 @@ class SyncEngine(
                 remote_latitud = remoteEntity.latitud,
                 remote_longitud = remoteEntity.longitud,
                 remote_foto_url = remoteEntity.foto_url,
+                remote_google_maps_url = remoteEntity.google_maps_url,
                 remote_version = remoteEntity.version,
                 remote_creado_en = remoteEntity.creado_en,
                 remote_actualizado_en = remoteEntity.actualizado_en,

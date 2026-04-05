@@ -21,6 +21,7 @@ data class PendingConflictEntity(
     val remote_latitud: Double?,
     val remote_longitud: Double?,
     val remote_foto_url: String?,
+    val remote_google_maps_url: String?,
     val remote_version: Int,
     val remote_creado_en: Long,
     val remote_actualizado_en: Long,

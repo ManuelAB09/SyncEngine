@@ -1,6 +1,12 @@
 package com.example.syncengine.ui.screens
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.Uri
+import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
@@ -55,6 +61,7 @@ import coil.request.ImageRequest
 import com.example.syncengine.ui.viewmodel.IncidenciaViewModel
 import java.io.File
 
+
 /**
  * Pantalla de formulario para crear o editar una incidencia.
  * Si hay una incidencia seleccionada en el ViewModel → modo edición.
@@ -73,6 +80,7 @@ fun FormScreen(
     var titulo by remember(selectedIncidencia) {
         mutableStateOf(selectedIncidencia?.titulo ?: "")
     }
+
     var descripcion by remember(selectedIncidencia) {
         mutableStateOf(selectedIncidencia?.descripcion ?: "")
     }
@@ -85,6 +93,67 @@ fun FormScreen(
     var longitudText by remember(selectedIncidencia) {
         mutableStateOf(selectedIncidencia?.longitud?.toString() ?: "")
     }
+    var googleMapsUrlText by remember(selectedIncidencia) {
+        mutableStateOf(selectedIncidencia?.google_maps_url ?: "")
+    }
+
+    val fillCurrentLocation = fillCurrentLocation@{
+        try {
+            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            if (locationManager == null) {
+                Log.d("MiApp", "LocationManager no disponible")
+                return@fillCurrentLocation
+            }
+
+            val hasFinePermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+            val hasCoarsePermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasFinePermission && !hasCoarsePermission) {
+                Log.d("MiApp", "No hay permisos de ubicación")
+                return@fillCurrentLocation
+            }
+
+            val location = try {
+                locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                    ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            } catch (e: Exception) {
+                Log.d("MiApp", "Error al obtener ubicación: ${e.message}")
+                null
+            }
+
+            if (location != null) {
+                val coords = "${location.latitude}, ${location.longitude}"
+                Log.d("MiApp", coords)
+                latitudText = location.latitude.toString()
+                longitudText = location.longitude.toString()
+                googleMapsUrlText = "https://maps.google.com/maps?q=${location.latitude},${location.longitude}"
+            } else {
+                Log.d("MiApp", "No se pudo obtener ubicación actual")
+            }
+        } catch (e: Exception) {
+            Log.d("MiApp", "Error al obtener ubicación: ${e.message}")
+        }
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            fillCurrentLocation()
+        } else {
+            Log.d("MiApp", "Permiso de ubicación denegado")
+        }
+    }
+
+
 
     // ── Estado de la foto ──
     // Prioridad: foto local nueva > foto local existente > foto_url remota
@@ -281,6 +350,33 @@ fun FormScreen(
                 }
             }
 
+            OutlinedButton(
+                onClick = {
+                    val hasFinePermission = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+                    val hasCoarsePermission = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                    if (hasFinePermission || hasCoarsePermission) {
+                        fillCurrentLocation()
+                    } else {
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Usar ubicación actual")
+            }
+
             // Coordenadas (opcionales)
             Text(
                 "Ubicación (opcional)",
@@ -307,6 +403,25 @@ fun FormScreen(
                 )
             }
 
+            OutlinedTextField(
+                value = googleMapsUrlText,
+                onValueChange = { googleMapsUrlText = it },
+                label = { Text("Google Maps URL (opcional)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            if (latitudText.isNotBlank() && longitudText.isNotBlank() && googleMapsUrlText.isBlank()) {
+                OutlinedButton(
+                    onClick = {
+                        googleMapsUrlText = "https://maps.google.com/maps?q=$latitudText,$longitudText"
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Usar coordenadas para crear url")
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             // Botón guardar
@@ -314,11 +429,12 @@ fun FormScreen(
                 onClick = {
                     val lat = latitudText.toDoubleOrNull()
                     val lng = longitudText.toDoubleOrNull()
+                    val url = googleMapsUrlText.ifBlank { null }
 
                     if (isEditing) {
-                        viewModel.updateIncidencia(titulo, descripcion, estado, localPhotoPath)
+                        viewModel.updateIncidencia(titulo, descripcion, estado, localPhotoPath, url)
                     } else {
-                        viewModel.createIncidencia(titulo, descripcion, lat, lng, localPhotoPath)
+                        viewModel.createIncidencia(titulo, descripcion, lat, lng, localPhotoPath, url)
                     }
                     onNavigateBack()
                 },

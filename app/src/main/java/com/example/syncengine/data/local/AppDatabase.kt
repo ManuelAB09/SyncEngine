@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [IncidenciaEntity::class, PendingConflictEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -65,6 +65,18 @@ abstract class AppDatabase : RoomDatabase() {
 
                 // 4) Añadir columna de foto remota a pending_conflicts
                 db.execSQL("ALTER TABLE pending_conflicts ADD COLUMN remote_foto_url TEXT")
+            }
+        }
+
+        /**
+         * Migración v3→v4:
+         * - Añade columna google_maps_url a incidencias_locales.
+         * - Añade columna remote_google_maps_url a pending_conflicts.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE incidencias_locales ADD COLUMN google_maps_url TEXT")
+                db.execSQL("ALTER TABLE pending_conflicts ADD COLUMN remote_google_maps_url TEXT")
             }
         }
 
