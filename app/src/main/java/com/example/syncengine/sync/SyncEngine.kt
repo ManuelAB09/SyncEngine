@@ -17,6 +17,7 @@ import com.example.syncengine.data.remote.SupabaseNetwork
 import com.example.syncengine.data.remote.toDto
 import com.example.syncengine.data.remote.toEntity
 import com.example.syncengine.util.DateUtils
+import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -305,7 +306,7 @@ class SyncEngine(
     // ─── PULL: Descargar cambios del servidor ───────────────────
 
     /**
-     * Descarga registros modificados desde la última sincronización.
+     * Descarga todas las incidencias del usuario actual desde el servidor.
      * Retorna (registros descargados, conflictos detectados).
      */
     private suspend fun pull(): Pair<Int, Int> {
@@ -313,20 +314,15 @@ class SyncEngine(
         var pulled = 0
         var conflicts = 0
 
-        val remoteChanges: List<IncidenciaDto> = if (lastSync > 0) {
-            val isoTimestamp = DateUtils.epochMillisToIso(lastSync)
-            client.from("incidencias")
-                .select {
-                    filter {
-                        gte("actualizado_en", isoTimestamp)
-                    }
+        val userId = client.auth.currentUserOrNull()?.id ?: return Pair(0, 0)
+
+        val remoteChanges: List<IncidenciaDto> = client.from("incidencias")
+            .select {
+                filter {
+                    eq("usuario_id", userId)
                 }
-                .decodeList()
-        } else {
-            client.from("incidencias")
-                .select()
-                .decodeList()
-        }
+            }
+            .decodeList()
 
         for (dto in remoteChanges) {
             // Ignorar registros borrados en el servidor
