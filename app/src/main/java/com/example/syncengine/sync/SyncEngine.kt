@@ -306,7 +306,7 @@ class SyncEngine(
     // ─── PULL: Descargar cambios del servidor ───────────────────
 
     /**
-     * Descarga todas las incidencias del usuario actual desde el servidor.
+     * Descarga registros modificados desde la última sincronización, o todos si es la primera vez.
      * Retorna (registros descargados, conflictos detectados).
      */
     private suspend fun pull(): Pair<Int, Int> {
@@ -316,13 +316,25 @@ class SyncEngine(
 
         val userId = client.auth.currentUserOrNull()?.id ?: return Pair(0, 0)
 
-        val remoteChanges: List<IncidenciaDto> = client.from("incidencias")
-            .select {
-                filter {
-                    eq("usuario_id", userId)
+        val remoteChanges: List<IncidenciaDto> = if (lastSync > 0) {
+            val isoTimestamp = DateUtils.epochMillisToIso(lastSync)
+            client.from("incidencias")
+                .select {
+                    filter {
+                        gte("actualizado_en", isoTimestamp)
+                        eq("usuario_id", userId)
+                    }
                 }
-            }
-            .decodeList()
+                .decodeList()
+        } else {
+            client.from("incidencias")
+                .select {
+                    filter {
+                        eq("usuario_id", userId)
+                    }
+                }
+                .decodeList()
+        }
 
         for (dto in remoteChanges) {
             // Ignorar registros borrados en el servidor
