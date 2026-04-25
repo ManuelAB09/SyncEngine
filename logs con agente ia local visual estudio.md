@@ -1,7 +1,6 @@
 # Logs con agente IA local Visual Estudio
 
-Este documento contiene la transcripción de la conversación entre el usuario y el asistente de IA, transformada a formato Markdown.
-
+Este documento contiene la conversación entre el usuario y el asistente de IA
 ## Conversaciones
 
 ### Usuario
